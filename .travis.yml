@@ -1,0 +1,16 @@
+united-build: 
+language: generic
+sudo: required
+services:
+- docker
+script:
+# ENABLE tne next line and delete add a "#" the next lines; if you want build with mock
+#- travis_wait 40 docker run --cap-add=SYS_ADMIN davidva/unibuild-27 /bin/sh /urpms -g UnitedRPMs/spotify -s spotify.spec -t fedora-25-x86_64
+- "docker run -v $(pwd):/root/enjoy --cap-add=SYS_ADMIN davidva/unibuild-27 /bin/sh /urpms -g UnitedRPMs/chromium-freeworld-libs-media -s chromium-freeworld-libs-media.spec -r true -d 'dist .fc27'"
+notifications:
+  webhooks:
+    urls:
+      - https://webhooks.gitter.im/e/8bbc656ea277114ba4fd
+    on_success: always  # options: [always|never|change] default: always
+    on_failure: always  # options: [always|never|change] default: always
+    on_start: never     # options: [always|never|change] default: always
