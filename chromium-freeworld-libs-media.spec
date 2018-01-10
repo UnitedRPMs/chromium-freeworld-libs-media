@@ -89,7 +89,7 @@
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    63.0.3239.108
+Version:    63.0.3239.132
 Release:    2%{?dist}
 Summary:    Chromium media libraries built with all possible codecs
 
@@ -267,8 +267,8 @@ sed -i 's|/opt/google/chrome-remote-desktop|%{crd_path}|g' remoting/host/setup/d
 %endif
 
 # https://groups.google.com/a/chromium.org/d/msg/chromium-packagers/wuInaKJkosg/kMfIV_7wDgAJ
-rm -rf third_party/freetype/src
-git clone https://chromium.googlesource.com/chromium/src/third_party/freetype2 third_party/freetype/src 
+# rm -rf third_party/freetype/src
+# git clone https://chromium.googlesource.com/chromium/src/third_party/freetype2 third_party/freetype/src 
 
 # xlocale.h is gone in F26/RAWHIDE
 sed -r -i 's/xlocale.h/locale.h/' buildtools/third_party/libc++/trunk/include/__locale
