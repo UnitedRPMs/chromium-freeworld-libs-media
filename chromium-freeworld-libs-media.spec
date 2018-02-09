@@ -18,7 +18,7 @@
 
 # Get the version number of latest stable version
 # $ curl -s 'https://omahaproxy.appspot.com/all?os=linux&channel=stable' | sed 1d | cut -d , -f 3
-%bcond_without normalsource
+%bcond_with normalsource
 
 
 %global debug_package %{nil}
@@ -164,6 +164,7 @@ BuildRequires: pkgconfig(gtk+-3.0)
 %else
 BuildRequires: pkgconfig(gtk+-2.0)
 %endif
+BuildRequires: python2-devel
 BuildRequires: pkgconfig(xtst), pkgconfig(xscrnsaver)
 BuildRequires: pkgconfig(dbus-1), pkgconfig(libudev)
 BuildRequires: pkgconfig(gnome-keyring-1)
@@ -302,6 +303,12 @@ git clone https://chromium.googlesource.com/chromium/src/third_party/freetype2 t
 
 # xlocale.h is gone in F26/RAWHIDE
 sed -r -i 's/xlocale.h/locale.h/' buildtools/third_party/libc++/trunk/include/__locale
+
+# /usr/bin/python will be removed or switched to Python 3 in the future f28
+sed -i 's|/usr/bin/env python|/usr/bin/env python2|g' build/linux/unbundle/remove_bundled_libraries.py
+
+# https://fedoraproject.org/wiki/Changes/Avoid_usr_bin_python_in_RPM_Build#Quick_Opt-Out
+export PYTHON_DISALLOW_AMBIGUOUS_VERSION=0
 
 
 ### build with widevine support
@@ -521,6 +528,15 @@ ln -s %{python2_sitelib}/jinja2 third_party/jinja2
 rmdir third_party/ply
 ln -s %{python2_sitelib}/ply third_party/ply
 %endif
+
+# Remove compiler flags not supported by our system clang
+  sed -i \
+    -e '/"-Wno-enum-compare-switch"/d' \
+    -e '/"-Wno-null-pointer-arithmetic"/d' \
+    -e '/"-Wno-tautological-unsigned-zero-compare"/d' \
+    -e '/"-Wno-tautological-constant-compare"/d' \
+    -e '/"-Wno-unused-lambda-capture"/d' \
+    build/config/compiler/BUILD.gn
 
 
 %build
