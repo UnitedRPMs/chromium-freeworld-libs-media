@@ -11,31 +11,21 @@
 
 
 %global chromiumdir %{_libdir}/chromium
-
+%global crd_path %{_libdir}/chrome-remote-desktop
 # Do not check any ffmpeg or libmedia bundle files in libdir for requires
 %global __requires_exclude_from ^%{chromiumdir}/libffmpeg.*$
 %global __requires_exclude_from ^%{chromiumdir}/libmedia.*$
 
+#
 # Get the version number of latest stable version
 # $ curl -s 'https://omahaproxy.appspot.com/all?os=linux&channel=stable' | sed 1d | cut -d , -f 3
 %bcond_with normalsource
 
-
 %global debug_package %{nil}
 
-
-%if 0
-%bcond_without system_libvpx
-%else
 %bcond_with system_libvpx
-%endif
 
-%if 0
 %bcond_without clang
-%else
-%bcond_with clang
-%endif
-
 
 %if 0%{?fedora} < 26
 %bcond_without system_jinja2
@@ -44,7 +34,7 @@
 %endif
 
 # markupsafe
-%bcond_without system_markupsafe
+%bcond_with system_markupsafe
 
 
 # https://github.com/dabeaz/ply/issues/66
@@ -89,7 +79,7 @@
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    64.0.3282.140
+Version:    65.0.3325.181
 Release:    2%{?dist}
 Summary:    Chromium media libraries built with all possible codecs
 
@@ -113,36 +103,37 @@ Patch0:    chromium-last-commit-position.patch
 # https://src.fedoraproject.org/cgit/rpms/chromium.git/commit/?id=86f726d
 Patch1:    chromium-blink-fpermissive.patch
 
-# GCC and Clang fixes
-Patch2:   chromium-64.0.3282.119-gcc7.patch
-Patch3:   chromium-64.0.3282.119-gcc-round-fix.patch
-
 # GTK2 fix
-Patch4:    chromium-clang-r2.patch
 %if !%{with _gtk3}
-Patch5:    gtk2.patch
+Patch2:    gtk2.patch
 %endif
 
 # Thanks openSuse
-Patch6:    chromium-prop-codecs.patch
-Patch7:    chromium-non-void-return.patch
+Patch3:    chromium-prop-codecs.patch
+Patch4:    chromium-non-void-return.patch
 
 # Thanks Debian
 # Fix warnings
-Patch8:    comment.patch   
-Patch9:    enum-boolean.patch		
-Patch10:   unused-typedefs.patch
+Patch5:    comment.patch   
+Patch6:    enum-boolean.patch		
+Patch7:   unused-typedefs.patch
 # Fix gn
-Patch11:   buildflags.patch
-Patch12:   narrowing.patch
+Patch8:   buildflags.patch
+Patch9:   narrowing.patch
 # fixes
-Patch13:   optimize.patch
-Patch14:   gpu-timeout.patch
+Patch10:   optimize.patch
+Patch11:   gpu-timeout.patch
 
 # Thanks Gentoo
-Patch15:   chromium-angle.patch
-Patch16:   chromium-memcpy-r0.patch
-Patch17:   chromium-gn-r0.patch
+Patch12:   chromium-clang-r2.patch
+Patch13:   chromium-math.h-r0.patch
+Patch14:   chromium-stdint.patch
+
+# Thanks to Daniel Bratell (Opera team)
+Patch15:   kCrlfLineEnding.patch
+
+# More buffer padding is used by ffmpeg 3.5
+Patch16:   ffmpeg.patch
 
 ExclusiveArch: i686 x86_64 armv7l
 
@@ -152,7 +143,8 @@ BuildRequires: gcc >= 5.1.1-2
 %endif
 
 %if %{with clang} || %{with require_clang} 
-BuildRequires: clang llvm
+BuildRequires: clang 
+BuildRequires: llvm 
 %endif
 # Basic tools and libraries
 BuildRequires: ninja-build, bison, gperf, hwdata
@@ -228,8 +220,6 @@ BuildRequires: desktop-file-utils
 %if %{with clang}
 BuildRequires: clang
 %endif
-# GTK3
-BuildRequires: pkgconfig(gtk+-3.0) 
 # markupsafe missed
 BuildRequires: git
 BuildRequires: nodejs
@@ -292,24 +282,18 @@ rm -f node
 ln -sf /usr/bin/node node
 popd
 
-%if %{with remote_desktop}
-# Fix hardcoded path in remoting code
-sed -i 's|/opt/google/chrome-remote-desktop|%{crd_path}|g' remoting/host/setup/daemon_controller_delegate_linux.cc
-%endif
-
 # https://groups.google.com/a/chromium.org/d/msg/chromium-packagers/wuInaKJkosg/kMfIV_7wDgAJ
-rm -rf third_party/freetype/src
-git clone https://chromium.googlesource.com/chromium/src/third_party/freetype2 third_party/freetype/src 
+#rm -rf third_party/freetype/src
+#git clone https://chromium.googlesource.com/chromium/src/third_party/freetype2 third_party/freetype/src 
 
 # xlocale.h is gone in F26/RAWHIDE
 sed -r -i 's/xlocale.h/locale.h/' buildtools/third_party/libc++/trunk/include/__locale
 
 # /usr/bin/python will be removed or switched to Python 3 in the future f28
-sed -i 's|/usr/bin/env python|/usr/bin/env python2|g' build/linux/unbundle/remove_bundled_libraries.py
+find . -name "*.py" |xargs sed -i 's|/usr/bin/env python|/usr/bin/env python2|g'
 
 # https://fedoraproject.org/wiki/Changes/Avoid_usr_bin_python_in_RPM_Build#Quick_Opt-Out
 export PYTHON_DISALLOW_AMBIGUOUS_VERSION=0
-
 
 ### build with widevine support
 
@@ -371,6 +355,8 @@ third_party/cros_system_api \
     third_party/devscripts \
     third_party/dom_distiller_js \
 third_party/ffmpeg \
+third_party/fontconfig \
+third_party/s2cellid \
     third_party/fips181 \
     third_party/flatbuffers \
     third_party/flot \
@@ -476,6 +462,7 @@ third_party/vulkan \
 %if !%{with system_harfbuzz}
     third_party/harfbuzz-ng \
 %endif
+v8/src/third_party/utf8-decoder \
 v8/src/third_party/valgrind 
 
 ./build/linux/unbundle/replace_gn_files.py --system-libraries \
@@ -529,6 +516,7 @@ rmdir third_party/ply
 ln -s %{python2_sitelib}/ply third_party/ply
 %endif
 
+
 # Remove compiler flags not supported by our system clang
   sed -i \
     -e '/"-Wno-enum-compare-switch"/d' \
@@ -536,10 +524,13 @@ ln -s %{python2_sitelib}/ply third_party/ply
     -e '/"-Wno-tautological-unsigned-zero-compare"/d' \
     -e '/"-Wno-tautological-constant-compare"/d' \
     -e '/"-Wno-unused-lambda-capture"/d' \
+    -e '/"-Wunused-lambda-capture"/d' \
     build/config/compiler/BUILD.gn
 
-
 %build
+
+# https://fedoraproject.org/wiki/Changes/Avoid_usr_bin_python_in_RPM_Build#Quick_Opt-Out
+export PYTHON_DISALLOW_AMBIGUOUS_VERSION=0
 
 # some still call gcc/g++
 %if %{with clang}
@@ -551,12 +542,7 @@ ln -sfn /usr/bin/$CC $HOME/bin/gcc
 ln -sfn /usr/bin/$CXX $HOME/bin/g++
 export PATH="$HOME/bin/:$PATH"
 
-
 export AR=ar NM=nm
-
-export CFLAGS="$(echo '%{__global_cflags}' | sed 's/-fexceptions//')"
-export CXXFLAGS="$(echo '%{?__global_cxxflags}%{!?__global_cxxflags:%{__global_cflags}}' | sed 's/-fexceptions//')"
-export LDFLAGS='%{__global_ldflags}'
 
 %if %{with clang}
 export CC=clang 
@@ -589,7 +575,6 @@ _flags+=(
     'use_debug_fission=false'
     'use_allocator="none"'
     'use_cups=true'
-    'use_gconf=false'
     'use_gnome_keyring=false'
     'use_gio=true'
     'use_gold=false'
@@ -648,6 +633,9 @@ install -m 644 out/Release/*.so %{buildroot}%{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Wed Mar 21 2018 - David Vasquez <davidjeremias82 AT gmail DOT com>  65.0.3325.181-2
+- Updated to 65.0.3325.181
 
 * Thu Dec 14 2017 - David Vasquez <davidjeremias82 AT gmail DOT com>  63.0.3239.108-2
 - Updated to 63.0.3239.108
