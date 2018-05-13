@@ -79,8 +79,8 @@
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    65.0.3325.181
-Release:    2%{?dist}
+Version:    66.0.3359.170
+Release:    7%{?dist}
 Summary:    Chromium media libraries built with all possible codecs
 
 Group:      Applications/Internet
@@ -110,30 +110,29 @@ Patch2:    gtk2.patch
 
 # Thanks openSuse
 Patch3:    chromium-prop-codecs.patch
-Patch4:    chromium-non-void-return.patch
 
 # Thanks Debian
 # Fix warnings
-Patch5:    comment.patch   
-Patch6:    enum-boolean.patch		
-Patch7:   unused-typedefs.patch
+Patch4:    comment.patch   
+Patch5:    enum-boolean.patch		
+Patch6:    unused-typedefs.patch
 # Fix gn
-Patch8:   buildflags.patch
-Patch9:   narrowing.patch
+Patch7:    buildflags.patch
+Patch8:    narrowing.patch
 # fixes
-Patch10:   optimize.patch
-Patch11:   gpu-timeout.patch
+Patch9:    optimize.patch
+Patch10:   gpu-timeout.patch
 
 # Thanks Gentoo
-Patch12:   chromium-clang-r2.patch
-Patch13:   chromium-math.h-r0.patch
-Patch14:   chromium-stdint.patch
-
-# Thanks to Daniel Bratell (Opera team)
-Patch15:   kCrlfLineEnding.patch
-
-# More buffer padding is used by ffmpeg 3.5
-Patch16:   ffmpeg.patch
+Patch11:   chromium-ffmpeg-r1.patch
+Patch12:   chromium-ffmpeg-clang.patch
+%if 0%{?fedora} < 28
+Patch13:   chromium-clang-r2.patch
+Patch14:   chromium-clang-r4.patch
+# Thanks opensuse
+Patch15:   chromium-gcc7.patch
+Patch16:   chromium-non-void-return.patch
+%endif
 
 ExclusiveArch: i686 x86_64 armv7l
 
@@ -253,7 +252,7 @@ tar xJf %{_builddir}/chromium-%{version}.tar.xz -C %{_builddir}
 %endif
 
 # fix debugedit: canonicalization unexpectedly shrank by one character
-sed -i 's@gpu//@gpu/@g' content/renderer/gpu/compositor_forwarding_message_filter.cc
+#sed -i 's@gpu//@gpu/@g' content/renderer/gpu/compositor_forwarding_message_filter.cc
 sed -i 's@audio_processing//@audio_processing/@g' third_party/webrtc/modules/audio_processing/utility/ooura_fft.cc
 sed -i 's@audio_processing//@audio_processing/@g' third_party/webrtc/modules/audio_processing/utility/ooura_fft_sse2.cc
 
@@ -331,6 +330,8 @@ third_party/angle/src/common/third_party/smhasher \
 third_party/angle/src/third_party/compiler \
 third_party/angle/src/third_party/libXNVCtrl \
 third_party/angle/src/third_party/trace_event \
+third_party/angle/third_party/glslang \
+third_party/angle/third_party/spirv-headers \
     third_party/boringssl \
     third_party/boringssl/src/third_party/fiat \
 third_party/blink \
@@ -372,6 +373,8 @@ third_party/s2cellid \
     third_party/khronos \
     third_party/leveldatabase \
     third_party/libaddressinput \
+    third_party/libaom \
+third_party/libaom/source/libaom/third_party/x86inc \
     third_party/libjingle \
     third_party/libphonenumber \
     third_party/libsecret \
@@ -401,7 +404,6 @@ third_party/markupsafe \
     third_party/mesa \
     third_party/metrics_proto \
     third_party/modp_b64 \
-    third_party/mt19937ar \
 %if !%{with system_openh264}
     third_party/openh264 \
 %endif
@@ -447,25 +449,28 @@ third_party/xdg-utils \
     third_party/pdfium/third_party/agg23 \
     third_party/pdfium/third_party/base \
     third_party/pdfium/third_party/bigint \
-    third_party/pdfium/third_party/build \
     third_party/pdfium/third_party/freetype \
 third_party/pdfium/third_party/lcms \
     third_party/pdfium/third_party/libopenjpeg20 \
     third_party/pdfium/third_party/libpng16 \
     third_party/pdfium/third_party/libtiff \
+third_party/pdfium/third_party/skia_shared \
     third_party/googletest \
     third_party/glslang-angle \
+third_party/unrar \
 third_party/vulkan \
     third_party/vulkan-validation-layers \
+third_party/angle/third_party/vulkan-validation-layers \
     third_party/spirv-tools-angle \
     third_party/spirv-headers \
+third_party/angle/third_party/spirv-tools \
 %if !%{with system_harfbuzz}
     third_party/harfbuzz-ng \
 %endif
 v8/src/third_party/utf8-decoder \
 v8/src/third_party/valgrind 
 
-./build/linux/unbundle/replace_gn_files.py --system-libraries \
+python2 build/linux/unbundle/replace_gn_files.py --system-libraries \
 %if %{with system_ffmpeg}
     ffmpeg \
 %endif
@@ -492,7 +497,7 @@ v8/src/third_party/valgrind
     yasm \
     zlib
 
-./build/download_nacl_toolchains.py --packages \
+python2 build/download_nacl_toolchains.py --packages \
     nacl_x86_glibc,nacl_x86_newlib,pnacl_newlib,pnacl_translator sync --extract
 
 
@@ -534,7 +539,7 @@ export PYTHON_DISALLOW_AMBIGUOUS_VERSION=0
 
 # some still call gcc/g++
 %if %{with clang}
-export CC=clang 
+export CC=clang
 export CXX=clang++
 %endif
 mkdir -p "$HOME/bin/"
@@ -542,10 +547,11 @@ ln -sfn /usr/bin/$CC $HOME/bin/gcc
 ln -sfn /usr/bin/$CXX $HOME/bin/g++
 export PATH="$HOME/bin/:$PATH"
 
+
 export AR=ar NM=nm
 
 %if %{with clang}
-export CC=clang 
+export CC=clang
 export CXX=clang++
 %else
 export CC="gcc"
@@ -609,6 +615,12 @@ _flags+=(
 )
 
 
+
+  # Facilitate deterministic builds (taken from build/config/compiler/BUILD.gn)
+  CFLAGS+='   -Wno-builtin-macro-redefined'
+  CXXFLAGS+=' -Wno-builtin-macro-redefined'
+  CPPFLAGS+=' -D__DATE__=  -D__TIME__=  -D__TIMESTAMP__='
+
 export PATH=%{_builddir}/tools/depot_tools/:"$PATH"
 
 ./tools/gn/bootstrap/bootstrap.py -v --gn-gen-args "${_flags[*]}"
@@ -633,6 +645,9 @@ install -m 644 out/Release/*.so %{buildroot}%{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Wed May 09 2018 - David Vasquez <davidjeremias82 AT gmail DOT com>  66.0.3359.170-7
+- Updated to 66.0.3359.170
 
 * Wed Mar 21 2018 - David Vasquez <davidjeremias82 AT gmail DOT com>  65.0.3325.181-2
 - Updated to 65.0.3325.181
