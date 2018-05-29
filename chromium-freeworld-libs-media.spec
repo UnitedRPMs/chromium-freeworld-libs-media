@@ -51,8 +51,12 @@
 %bcond_with system_libxml2
 %endif
 
-# Require harfbuzz >= 1.4.2 for hb_variation_t
+# Require harfbuzz >= 1.5.0 for hb_glyph_info_t
+%if 0%{?fedora} >= 28
+%bcond_without system_harfbuzz
+%else
 %bcond_with system_harfbuzz
+%endif
 
 # Allow testing whether icu can be unbundled
 %bcond_with system_libicu
@@ -76,11 +80,14 @@
 # https://chromium.googlesource.com/chromium/src/+/lkcr/docs/jumbo.md
 %bcond_without jumbo_unity
 
+# Vaapi conditional
+%bcond_with vaapi
+
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    66.0.3359.170
-Release:    7%{?dist}
+Version:    66.0.3359.181
+Release:    2%{?dist}
 Summary:    Chromium media libraries built with all possible codecs
 
 Group:      Applications/Internet
@@ -97,41 +104,41 @@ Source998:  https://github.com/UnitedRPMs/chromium-freeworld/raw/master/gn-binar
 
 # Add a patch from Fedora to fix GN build
 # https://src.fedoraproject.org/cgit/rpms/chromium.git/commit/?id=0df9641
-Patch0:    chromium-last-commit-position.patch
+Patch:    chromium-last-commit-position.patch
 
 # Add several patches from Fedora to fix build with GCC 7
 # https://src.fedoraproject.org/cgit/rpms/chromium.git/commit/?id=86f726d
 Patch1:    chromium-blink-fpermissive.patch
 
-# GTK2 fix
-%if !%{with _gtk3}
-Patch2:    gtk2.patch
-%endif
-
 # Thanks openSuse
-Patch3:    chromium-prop-codecs.patch
+Patch2:    chromium-prop-codecs.patch
+Patch3:   chromium-gcc7.patch
+Patch4:   chromium-non-void-return.patch
 
 # Thanks Debian
 # Fix warnings
-Patch4:    comment.patch   
-Patch5:    enum-boolean.patch		
-Patch6:    unused-typedefs.patch
+Patch5:    comment.patch   
+Patch6:    enum-boolean.patch		
+Patch7:    unused-typedefs.patch
 # Fix gn
-Patch7:    buildflags.patch
-Patch8:    narrowing.patch
+Patch8:    buildflags.patch
+Patch9:    narrowing.patch
 # fixes
-Patch9:    optimize.patch
-Patch10:   gpu-timeout.patch
+Patch10:   optimize.patch
+Patch11:   gpu-timeout.patch
 
 # Thanks Gentoo
-Patch11:   chromium-ffmpeg-r1.patch
-Patch12:   chromium-ffmpeg-clang.patch
-%if 0%{?fedora} < 28
-Patch13:   chromium-clang-r2.patch
-Patch14:   chromium-clang-r4.patch
-# Thanks opensuse
-Patch15:   chromium-gcc7.patch
-Patch16:   chromium-non-void-return.patch
+Patch12:   chromium-ffmpeg-r1.patch
+Patch13:   chromium-ffmpeg-clang.patch
+Patch14:   chromium-clang-r2.patch
+Patch15:   chromium-clang-r4.patch
+
+# Thanks Arch Linux
+Patch16: fix-frame-buttons-rendering-too-large-when-using-OSX.patch
+
+# Thanks Intel
+%if %{with vaapi}
+Patch17: vaapi.patch
 %endif
 
 ExclusiveArch: i686 x86_64 armv7l
@@ -289,7 +296,9 @@ popd
 sed -r -i 's/xlocale.h/locale.h/' buildtools/third_party/libc++/trunk/include/__locale
 
 # /usr/bin/python will be removed or switched to Python 3 in the future f28
-find . -name "*.py" |xargs sed -i 's|/usr/bin/env python|/usr/bin/env python2|g'
+%if 0%{?fedora} > 27
+find -type f -exec sed -i '1s=^#!/usr/bin/\(python\|env python\)[23]\?=#!%{__python2}=' {} +
+%endif
 
 # https://fedoraproject.org/wiki/Changes/Avoid_usr_bin_python_in_RPM_Build#Quick_Opt-Out
 export PYTHON_DISALLOW_AMBIGUOUS_VERSION=0
@@ -300,8 +309,17 @@ export PYTHON_DISALLOW_AMBIGUOUS_VERSION=0
 # fix the missing define (if not, fail build) (need upstream fix) (https://crbug.com/473866)
 sed '14i#define WIDEVINE_CDM_VERSION_STRING "Something fresh"' -i "third_party/widevine/cdm/stub/widevine_cdm_version.h"
 
-./build/linux/unbundle/remove_bundled_libraries.py --do-remove \
-buildtools/third_party/libc++ \
+# Allow building against system libraries in official builds
+  sed -i 's/OFFICIAL_BUILD/GOOGLE_CHROME_BUILD/' \
+    tools/generate_shim_headers/generate_shim_headers.py
+
+# Work around broken screen sharing in Google Meet
+  # https://crbug.com/829916#c16
+  sed -i 's/"Chromium/"Chrome/' chrome/common/chrome_content_client_constants.cc
+
+python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
+    buildtools/third_party/libc++ \
+buildtools/third_party/libc++abi \
 %if !%{with system_libicu}
     third_party/icu \
     base/third_party/icu/ \
@@ -317,47 +335,50 @@ buildtools/third_party/libc++ \
     base/third_party/xdg_user_dirs \
     chrome/third_party/mozilla_security_manager \
     courgette/third_party \
-native_client/src/third_party/dlmalloc \
-native_client/src/third_party/valgrind \
+    native_client/src/third_party/dlmalloc \
+    native_client/src/third_party/valgrind \
     net/third_party/mozilla_security_manager \
     net/third_party/nss \
     third_party/node \
     third_party/adobe \
     third_party/analytics \
-third_party/angle \
-third_party/angle/src/common/third_party/base \
-third_party/angle/src/common/third_party/smhasher \
-third_party/angle/src/third_party/compiler \
-third_party/angle/src/third_party/libXNVCtrl \
-third_party/angle/src/third_party/trace_event \
-third_party/angle/third_party/glslang \
-third_party/angle/third_party/spirv-headers \
+    third_party/swiftshader \
+    third_party/swiftshader/third_party/subzero \
+    third_party/swiftshader/third_party/llvm-subzero \
+    third_party/angle \
+    third_party/angle/src/common/third_party/base \
+    third_party/angle/src/common/third_party/smhasher \
+    third_party/angle/src/third_party/compiler \
+    third_party/angle/src/third_party/libXNVCtrl \
+    third_party/angle/src/third_party/trace_event \
+    third_party/angle/third_party/glslang \
+    third_party/angle/third_party/spirv-headers \
     third_party/boringssl \
     third_party/boringssl/src/third_party/fiat \
-third_party/blink \
-third_party/breakpad \
-third_party/breakpad/breakpad/src/third_party/curl \
+    third_party/blink \
+    third_party/breakpad \
+    third_party/breakpad/breakpad/src/third_party/curl \
     third_party/brotli \
     third_party/cacheinvalidation \
-third_party/catapult \
-third_party/catapult/common/py_vulcanize/third_party/rcssmin  \
-third_party/catapult/common/py_vulcanize/third_party/rjsmin  \
-third_party/catapult/third_party/polymer \
-third_party/catapult/tracing/third_party/d3 \
-third_party/catapult/tracing/third_party/gl-matrix \
-third_party/catapult/tracing/third_party/jszip \
-third_party/catapult/tracing/third_party/mannwhitneyu \
-third_party/catapult/tracing/third_party/oboe \
-third_party/catapult/tracing/third_party/pako \
+    third_party/catapult \
+    third_party/catapult/common/py_vulcanize/third_party/rcssmin  \
+    third_party/catapult/common/py_vulcanize/third_party/rjsmin  \
+    third_party/catapult/third_party/polymer \
+    third_party/catapult/tracing/third_party/d3 \
+    third_party/catapult/tracing/third_party/gl-matrix \
+    third_party/catapult/tracing/third_party/jszip \
+    third_party/catapult/tracing/third_party/mannwhitneyu \
+    third_party/catapult/tracing/third_party/oboe \
+    third_party/catapult/tracing/third_party/pako \
     third_party/ced \
     third_party/cld_3 \
-third_party/crc32c \
-third_party/cros_system_api \
+    third_party/crc32c \
+    third_party/cros_system_api \
     third_party/devscripts \
     third_party/dom_distiller_js \
-third_party/ffmpeg \
-third_party/fontconfig \
-third_party/s2cellid \
+    third_party/ffmpeg \
+    third_party/fontconfig \
+    third_party/s2cellid \
     third_party/fips181 \
     third_party/flatbuffers \
     third_party/flot \
@@ -374,11 +395,11 @@ third_party/s2cellid \
     third_party/leveldatabase \
     third_party/libaddressinput \
     third_party/libaom \
-third_party/libaom/source/libaom/third_party/x86inc \
+    third_party/libaom/source/libaom/third_party/x86inc \
     third_party/libjingle \
     third_party/libphonenumber \
     third_party/libsecret \
-third_party/libsrtp \
+    third_party/libsrtp \
     third_party/libudev \
     third_party/libusb \
 %if !%{with system_libvpx}
@@ -395,8 +416,9 @@ third_party/libsrtp \
     third_party/libxml \
 %endif
     third_party/libXNVCtrl \
-third_party/libyuv \
-third_party/lss \
+    third_party/libyuv \
+third_party/llvm \
+    third_party/lss \
     third_party/lzma_sdk \
 %if !%{with system_markupsafe}
 third_party/markupsafe \
@@ -407,10 +429,10 @@ third_party/markupsafe \
 %if !%{with system_openh264}
     third_party/openh264 \
 %endif
-third_party/openmax_dl \
+    third_party/openmax_dl \
     third_party/opus \
     third_party/ots \
-third_party/freetype \
+    third_party/freetype \
 %if !%{with system_ply}
     third_party/ply \
 %endif
@@ -419,10 +441,10 @@ third_party/freetype \
     third_party/protobuf/third_party/six \
     third_party/qcms \
     third_party/sfntly \
-third_party/skia \
-third_party/skia/third_party/vulkan \
-third_party/skia/third_party/gif \
-third_party/node/node_modules/polymer-bundler/lib/third_party/UglifyJS2 \
+    third_party/skia \
+    third_party/skia/third_party/vulkan \
+    third_party/skia/third_party/gif \
+    third_party/node/node_modules/polymer-bundler/lib/third_party/UglifyJS2 \
     third_party/smhasher \
     third_party/speech-dispatcher \
     third_party/sqlite \
@@ -436,9 +458,9 @@ third_party/node/node_modules/polymer-bundler/lib/third_party/UglifyJS2 \
     third_party/webrtc \
     third_party/widevine \
     third_party/inspector_protocol \
-v8/third_party/inspector_protocol \
+    v8/third_party/inspector_protocol \
     third_party/woff2 \
-third_party/xdg-utils \
+    third_party/xdg-utils \
     third_party/yasm/run_yasm.py \
     third_party/zlib/google \
     third_party/sinonjs \
@@ -450,25 +472,25 @@ third_party/xdg-utils \
     third_party/pdfium/third_party/base \
     third_party/pdfium/third_party/bigint \
     third_party/pdfium/third_party/freetype \
-third_party/pdfium/third_party/lcms \
+    third_party/pdfium/third_party/lcms \
     third_party/pdfium/third_party/libopenjpeg20 \
     third_party/pdfium/third_party/libpng16 \
     third_party/pdfium/third_party/libtiff \
-third_party/pdfium/third_party/skia_shared \
+    third_party/pdfium/third_party/skia_shared \
     third_party/googletest \
     third_party/glslang-angle \
-third_party/unrar \
-third_party/vulkan \
+    third_party/unrar \
+    third_party/vulkan \
     third_party/vulkan-validation-layers \
-third_party/angle/third_party/vulkan-validation-layers \
+    third_party/angle/third_party/vulkan-validation-layers \
     third_party/spirv-tools-angle \
     third_party/spirv-headers \
-third_party/angle/third_party/spirv-tools \
+    third_party/angle/third_party/spirv-tools \
 %if !%{with system_harfbuzz}
     third_party/harfbuzz-ng \
 %endif
-v8/src/third_party/utf8-decoder \
-v8/src/third_party/valgrind 
+    v8/src/third_party/utf8-decoder \
+    v8/src/third_party/valgrind 
 
 python2 build/linux/unbundle/replace_gn_files.py --system-libraries \
 %if %{with system_ffmpeg}
@@ -495,6 +517,7 @@ python2 build/linux/unbundle/replace_gn_files.py --system-libraries \
     icu \
 %endif
     yasm \
+    fontconfig \
     zlib
 
 python2 build/download_nacl_toolchains.py --packages \
@@ -523,14 +546,17 @@ ln -s %{python2_sitelib}/ply third_party/ply
 
 
 # Remove compiler flags not supported by our system clang
+%if 0%{?fedora} <= 27
   sed -i \
     -e '/"-Wno-enum-compare-switch"/d' \
     -e '/"-Wno-null-pointer-arithmetic"/d' \
+    -e '/"-Wno-enum-compare-switch"/d' \
     -e '/"-Wno-tautological-unsigned-zero-compare"/d' \
     -e '/"-Wno-tautological-constant-compare"/d' \
     -e '/"-Wno-unused-lambda-capture"/d' \
     -e '/"-Wunused-lambda-capture"/d' \
     build/config/compiler/BUILD.gn
+%endif
 
 %build
 
@@ -645,6 +671,9 @@ install -m 644 out/Release/*.so %{buildroot}%{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Wed May 16 2018 - David Vasquez <davidjeremias82 AT gmail DOT com>  66.0.3359.181-2
+- Updated to 66.0.3359.181
 
 * Wed May 09 2018 - David Vasquez <davidjeremias82 AT gmail DOT com>  66.0.3359.170-7
 - Updated to 66.0.3359.170
