@@ -278,9 +278,11 @@ BuildRequires:	thai-scalable-garuda-fonts
 BuildRequires:	lohit-devanagari-fonts
 BuildRequires:	lohit-gurmukhi-fonts
 BuildRequires:	lohit-tamil-fonts
+%if 0%{?fedora} >= 27
 BuildRequires:	google-noto-sans-cjk-jp-fonts
 BuildRequires:	google-noto-sans-khmer-fonts
 BuildRequires:	google-croscore-tinos-fonts
+%endif
 BuildRequires:	subversion
 
 Provides: %{name}%{_isa} = %{version}-%{release}
