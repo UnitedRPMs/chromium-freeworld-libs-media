@@ -25,7 +25,14 @@
 
 %bcond_with system_libvpx
 
+# clang is necessary for a fast build
 %bcond_without clang
+# 
+%if 0%{?fedora} <= 27
+%bcond_without clang_bundle
+%else
+%bcond_with clang_bundle
+%endif
 
 %if 0%{?fedora} < 26
 %bcond_without system_jinja2
@@ -86,8 +93,8 @@
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    66.0.3359.181
-Release:    2%{?dist}
+Version:    67.0.3396.87
+Release:    3%{?dist}
 Summary:    Chromium media libraries built with all possible codecs
 
 Group:      Applications/Internet
@@ -102,18 +109,35 @@ Source1:    chromium-latest.py
 Source997:  https://github.com/UnitedRPMs/chromium-freeworld/raw/master/depot_tools.tar.xz
 Source998:  https://github.com/UnitedRPMs/chromium-freeworld/raw/master/gn-binaries.tar.xz
 
+# The following two source files are copied and modified from
+# https://repos.fedorapeople.org/repos/spot/chromium/
+Source10:   chromium-wrapper.txt
+Source11:   chromium-freeworld.desktop
+
+# The following two source files are copied verbatim from
+# http://pkgs.fedoraproject.org/cgit/rpms/chromium.git/tree/
+Source12:   chromium-freeworld.xml
+Source13:   chromium-freeworld.appdata.xml
+
+# Unpackaged fonts
+Source15:	https://fontlibrary.org/assets/downloads/gelasio/4d610887ff4d445cbc639aae7828d139/gelasio.zip
+Source16:	http://download.savannah.nongnu.org/releases/freebangfont/MuktiNarrow-0.94.tar.bz2
+Source17:	https://chromium.googlesource.com/chromium/src.git/+archive/refs/heads/master/third_party/test_fonts.tar.gz
+Source18:	https://github.com/web-platform-tests/wpt/raw/master/fonts/Ahem.ttf
+
 # Add a patch from Fedora to fix GN build
 # https://src.fedoraproject.org/cgit/rpms/chromium.git/commit/?id=0df9641
 Patch:    chromium-last-commit-position.patch
 
-# Add several patches from Fedora to fix build with GCC 7
-# https://src.fedoraproject.org/cgit/rpms/chromium.git/commit/?id=86f726d
-Patch1:    chromium-blink-fpermissive.patch
+# Add several patches from Fedora 
+Patch1:   chromium-nacl-llvm-ar.patch
+
+# Thanks Arch Linux
+Patch2:   x11-fix-mixup-between-DIP-pixel-coordinates.patch
 
 # Thanks openSuse
-Patch2:    chromium-prop-codecs.patch
-Patch3:   chromium-gcc7.patch
-Patch4:   chromium-non-void-return.patch
+Patch3:    chromium-prop-codecs.patch
+Patch4:    chromium-non-void-return.patch
 
 # Thanks Debian
 # Fix warnings
@@ -126,20 +150,22 @@ Patch9:    narrowing.patch
 # fixes
 Patch10:   optimize.patch
 Patch11:   gpu-timeout.patch
+Patch12:   namespace.patch
+Patch13:   ambiguous-aliases.patch
+Patch14:   mojo.patch
+Patch15:   dma.patch
+Patch16:   widevine-allow-on-linux.patch
 
 # Thanks Gentoo
-Patch12:   chromium-ffmpeg-r1.patch
-Patch13:   chromium-ffmpeg-clang.patch
-Patch14:   chromium-clang-r2.patch
-Patch15:   chromium-clang-r4.patch
-
-# Thanks Arch Linux
-Patch16: fix-frame-buttons-rendering-too-large-when-using-OSX.patch
+Patch17:   chromium-ffmpeg-r1.patch
+Patch18:   chromium-ffmpeg-clang.patch
+Patch19:   chromium-gn-bootstrap-r23.patch
 
 # Thanks Intel
 %if %{with vaapi}
-Patch17: vaapi.patch
+Patch20:   vaapi.patch
 %endif
+
 
 ExclusiveArch: i686 x86_64 armv7l
 
@@ -238,6 +264,25 @@ BuildRequires: vulkan-devel
 BuildRequires: libicu-devel
 %endif
 
+%if %{with vaapi}
+BuildRequires:	libva-devel 
+%endif
+BuildRequires:  pkgconfig(libtcmalloc)
+#unbundle fontconfig avoid fails in start
+BuildRequires:	fontconfig-devel
+# fonts
+BuildRequires:	google-croscore-arimo-fonts
+BuildRequires:	google-croscore-cousine-fonts
+BuildRequires:	dejavu-sans-fonts
+BuildRequires:	thai-scalable-garuda-fonts
+BuildRequires:	lohit-devanagari-fonts
+BuildRequires:	lohit-gurmukhi-fonts
+BuildRequires:	lohit-tamil-fonts
+BuildRequires:	google-noto-sans-cjk-jp-fonts
+BuildRequires:	google-noto-sans-khmer-fonts
+BuildRequires:	google-croscore-tinos-fonts
+BuildRequires:	subversion
+
 Provides: %{name}%{_isa} = %{version}-%{release}
 Provides: libffmpeg.so()(64bit)
 Provides: chromium-libs-media-freeworld = %{version}
@@ -263,6 +308,38 @@ tar xJf %{_builddir}/chromium-%{version}.tar.xz -C %{_builddir}
 sed -i 's@audio_processing//@audio_processing/@g' third_party/webrtc/modules/audio_processing/utility/ooura_fft.cc
 sed -i 's@audio_processing//@audio_processing/@g' third_party/webrtc/modules/audio_processing/utility/ooura_fft_sse2.cc
 
+# Render fix
+sed -i 's|public Path,|public blink::Path,|g' third_party/blink/renderer/platform/graphics/path.h
+
+%if %{with clang_bundle}
+wget -c http://releases.llvm.org/6.0.0/clang+llvm-6.0.0-x86_64-linux-gnu-Fedora27.tar.xz
+tar xJf clang+llvm-6.0.0-x86_64-linux-gnu-Fedora27.tar.xz -C %{_builddir} 
+pushd %{_builddir}
+mv -f clang+llvm-6.0.0-x86_64-linux-gnu-Fedora27 buclang
+popd
+%endif
+
+# Unpack fonts
+# Chromium why does not include it?
+rm -rf third_party/test_fonts
+mkdir -p third_party/test_fonts/test_fonts
+tar xmzvf %{S:17} -C third_party/test_fonts
+pushd third_party/test_fonts/test_fonts
+unzip %{S:15}
+tar xf %{S:16}
+mv MuktiNarrow0.94/MuktiNarrow.ttf .
+rm -rf MuktiNarrow0.94
+cp -a /usr/share/fonts/dejavu/DejaVuSans.ttf /usr/share/fonts/dejavu/DejaVuSans-Bold.ttf .
+cp -a /usr/share/fonts/thai-scalable/Garuda.ttf .
+cp -a /usr/share/fonts/lohit-devanagari/Lohit-Devanagari.ttf /usr/share/fonts/lohit-gurmukhi/Lohit-Gurmukhi.ttf /usr/share/fonts/lohit-tamil/Lohit-Tamil.ttf .
+cp -a /usr/share/fonts/google-noto-cjk/NotoSansCJKjp-Regular.otf /usr/share/fonts/google-noto/NotoSansKhmer-Regular.ttf .
+cp -a /usr/share/fonts/google-croscore/Tinos-*.ttf .
+cp -f %{S:18} .
+svn checkout "https://github.com/bloomberg/chromium.bb/trunk/src/third_party/gardiner_mod" . && rm -rf .svn
+svn checkout https://github.com/google/fonts/trunk/apache/arimo . && rm -rf .svn
+svn checkout https://github.com/google/fonts/trunk/apache/cousine . && rm -rf .svn
+popd
+#
 
 tar xJf %{S:998} -C %{_builddir}
 tar xJf %{S:997} -C %{_builddir}
@@ -294,11 +371,6 @@ popd
 
 # xlocale.h is gone in F26/RAWHIDE
 sed -r -i 's/xlocale.h/locale.h/' buildtools/third_party/libc++/trunk/include/__locale
-
-# /usr/bin/python will be removed or switched to Python 3 in the future f28
-%if 0%{?fedora} > 27
-find -type f -exec sed -i '1s=^#!/usr/bin/\(python\|env python\)[23]\?=#!%{__python2}=' {} +
-%endif
 
 # https://fedoraproject.org/wiki/Changes/Avoid_usr_bin_python_in_RPM_Build#Quick_Opt-Out
 export PYTHON_DISALLOW_AMBIGUOUS_VERSION=0
@@ -356,6 +428,7 @@ buildtools/third_party/libc++abi \
     third_party/boringssl \
     third_party/boringssl/src/third_party/fiat \
     third_party/blink \
+third_party/apple_apsl \
     third_party/breakpad \
     third_party/breakpad/breakpad/src/third_party/curl \
     third_party/brotli \
@@ -372,6 +445,8 @@ buildtools/third_party/libc++abi \
     third_party/catapult/tracing/third_party/pako \
     third_party/ced \
     third_party/cld_3 \
+    third_party/crashpad \
+    third_party/crashpad/crashpad/third_party/zlib \
     third_party/crc32c \
     third_party/cros_system_api \
     third_party/devscripts \
@@ -433,6 +508,7 @@ third_party/markupsafe \
     third_party/opus \
     third_party/ots \
     third_party/freetype \
+    third_party/test_fonts \
 %if !%{with system_ply}
     third_party/ply \
 %endif
@@ -558,6 +634,14 @@ ln -s %{python2_sitelib}/ply third_party/ply
     build/config/compiler/BUILD.gn
 %endif
 
+%if 0%{?fedora} >= 28 || %{with clang_bundle}
+sed -i \
+    -e '/"-Wno-ignored-pragma-optimize"/d' build/config/compiler/BUILD.gn
+%endif
+
+# Force script incompatible with Python 3 to use /usr/bin/python2
+  sed -i '1s|python$|&2|' third_party/dom_distiller_js/protoc_plugins/*.py
+
 %build
 
 # https://fedoraproject.org/wiki/Changes/Avoid_usr_bin_python_in_RPM_Build#Quick_Opt-Out
@@ -589,10 +673,15 @@ _flags+=(
     'is_debug=false'
 %if %{with clang}
     'is_clang=true' 
-    'clang_base_path="/usr"'
-    'clang_use_chrome_plugins=false'
 %else
     'is_clang=false' 
+%endif
+%if %{with clang_bundle}
+    'clang_base_path="%{_builddir}/buclang"'
+    'clang_use_chrome_plugins=false'
+%else
+    'clang_base_path="/usr"'
+    'clang_use_chrome_plugins=false'
 %endif
     'fatal_linker_warnings=false'
     'treat_warnings_as_errors=false'
@@ -600,12 +689,21 @@ _flags+=(
     'remove_webcore_debug_symbols=true'
     'ffmpeg_branding="Chrome"'
     'proprietary_codecs=true'
+%if %{with vaapi}
+    'use_vaapi=true'
+%else
+    'use_vaapi=false'
+%endif
+    'use_aura=true'
     'link_pulseaudio=true'
     'linux_use_bundled_binutils=false'
     'use_custom_libcxx=false'
     'use_lld=false'
     'use_debug_fission=false'
     'use_allocator="none"'
+    'use_ozone=false'
+    'optimize_webui=false'
+    'enable_iterator_debugging=false'
     'use_cups=true'
     'use_gnome_keyring=false'
     'use_gio=true'
@@ -617,7 +715,7 @@ _flags+=(
     'enable_hangout_services_extension=true'
     'enable_widevine=true'
     'enable_nacl=false'
-    'enable_swiftshader=false'
+    'enable_swiftshader=true'
     'enable_webrtc=true'
     "google_api_key=\"AIzaSyD1hTe85_a14kr1Ks8T3Ce75rvbR1_Dx7Q\""
     "google_default_client_id=\"4139804441.apps.googleusercontent.com\""
@@ -630,8 +728,10 @@ _flags+=(
     'symbol_level=0'
 %if %{with jumbo_unity}
     'use_jumbo_build=true'
-    'jumbo_file_merge_limit=100'
+    'jumbo_file_merge_limit=9'
 %endif
+    'concurrent_links=1'
+    'optimize_for_size=true'
     'remove_webcore_debug_symbols=true'
 %if %{with _gtk3}
     'use_gtk3=true'
@@ -640,12 +740,6 @@ _flags+=(
 %endif
 )
 
-
-
-  # Facilitate deterministic builds (taken from build/config/compiler/BUILD.gn)
-  CFLAGS+='   -Wno-builtin-macro-redefined'
-  CXXFLAGS+=' -Wno-builtin-macro-redefined'
-  CPPFLAGS+=' -D__DATE__=  -D__TIME__=  -D__TIMESTAMP__='
 
 export PATH=%{_builddir}/tools/depot_tools/:"$PATH"
 
@@ -671,6 +765,9 @@ install -m 644 out/Release/*.so %{buildroot}%{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Thu Jun 14 2018 - David Vasquez <davidjeremias82 AT gmail DOT com>  67.0.3396.87-3
+- Updated to 67.0.3396.87
 
 * Wed May 16 2018 - David Vasquez <davidjeremias82 AT gmail DOT com>  66.0.3359.181-2
 - Updated to 66.0.3359.181

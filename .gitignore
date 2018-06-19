@@ -4,5 +4,12 @@ RPMS/*
 SPECS/*
 SRPMS/*
 chromium-*.tar.xz
+clang*.tar.xz
 chromium*/
+new/*
+orig/*
+*.ttf
+*.rpm
 .directory
+MuktiNarrow*.tar.bz2
+gelasio.zip
