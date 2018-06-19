@@ -339,8 +339,8 @@ cp -a /usr/share/fonts/google-noto-cjk/NotoSansCJKjp-Regular.otf /usr/share/font
 cp -a /usr/share/fonts/google-croscore/Tinos-*.ttf .
 %endif
 cp -f %{S:18} .
-svn checkout "https://github.com/bloomberg/chromium.bb/trunk/src/third_party/gardiner_mod" . && rm -rf .svn
-svn checkout https://github.com/google/fonts/trunk/apache/arimo . && rm -rf .svn
+svn checkout "https://github.com/bloomberg/chromium.bb/trunk/src/third_party/gardiner_mod" . && rm -rf .svn && rm -f *.html *.txt *.pb
+svn checkout https://github.com/google/fonts/trunk/apache/arimo . && rm -rf .svn && rm -f *.html *.txt *.pb
 svn checkout https://github.com/google/fonts/trunk/apache/cousine . && rm -rf .svn
 popd
 #
