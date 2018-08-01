@@ -4,7 +4,7 @@
 #  [3] https://build.opensuse.org/package/show/openSUSE:Factory/chromium
 #  [4] https://pkgs.fedoraproject.org/cgit/rpms/chromium.git 
 #  [5] http://copr-dist-git.fedorainfracloud.org/cgit/lantw44/chromium/chromium.git
-#  [6] https://anonscm.debian.org/cgit/pkg-chromium/pkg-chromium.git/tree/debian
+#  [6] https://salsa.debian.org/chromium-team/chromium/tree/master/debian
 #  [7] http://www.linuxfromscratch.org/blfs/view/cvs/xsoft/chromium.html
 #  [8] https://aur.archlinux.org/packages/chromium-gtk2/
 #  [9] https://github.com/RussianFedora/chromium/
@@ -23,6 +23,7 @@
 
 %global debug_package %{nil}
 
+# vpx
 %bcond_with system_libvpx
 
 # clang is necessary for a fast build
@@ -34,6 +35,7 @@
 %bcond_with clang_bundle
 %endif
 
+# jinja conditional
 %if 0%{?fedora} < 26
 %bcond_without system_jinja2
 %else
@@ -59,17 +61,10 @@
 %endif
 
 # Require harfbuzz >= 1.5.0 for hb_glyph_info_t
-%if 0%{?fedora} >= 28
-%bcond_without system_harfbuzz
-%else
 %bcond_with system_harfbuzz
-%endif
 
 # Allow testing whether icu can be unbundled
 %bcond_with system_libicu
-
-# Allow building with symbols to ease debugging
-%bcond_without symbol
 
 # Allow disabling unconditional build dependency on clang
 %bcond_without require_clang
@@ -93,8 +88,8 @@
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    67.0.3396.87
-Release:    3%{?dist}
+Version:    68.0.3440.75
+Release:    7%{?dist}
 Summary:    Chromium media libraries built with all possible codecs
 
 Group:      Applications/Internet
@@ -124,48 +119,44 @@ Source15:	https://fontlibrary.org/assets/downloads/gelasio/4d610887ff4d445cbc639
 Source16:	http://download.savannah.nongnu.org/releases/freebangfont/MuktiNarrow-0.94.tar.bz2
 Source17:	https://chromium.googlesource.com/chromium/src.git/+archive/refs/heads/master/third_party/test_fonts.tar.gz
 Source18:	https://github.com/web-platform-tests/wpt/raw/master/fonts/Ahem.ttf
+Source19:	https://chromium.googlesource.com/chromium/src/+archive/66.0.3359.158/third_party/gardiner_mod.tar.gz
 
 # Add a patch from Fedora to fix GN build
 # https://src.fedoraproject.org/cgit/rpms/chromium.git/commit/?id=0df9641
 Patch:    chromium-last-commit-position.patch
 
-# Add several patches from Fedora 
-Patch1:   chromium-nacl-llvm-ar.patch
-
-# Thanks Arch Linux
-Patch2:   x11-fix-mixup-between-DIP-pixel-coordinates.patch
+Patch1:   llvm-fix.patch
 
 # Thanks openSuse
-Patch3:    chromium-prop-codecs.patch
-Patch4:    chromium-non-void-return.patch
+Patch2:    chromium-prop-codecs.patch
+Patch3:    chromium-non-void-return.patch
 
 # Thanks Debian
 # Fix warnings
-Patch5:    comment.patch   
-Patch6:    enum-boolean.patch		
-Patch7:    unused-typedefs.patch
+Patch4:    comment.patch   
+Patch5:    enum-boolean.patch		
+Patch6:    unused-typedefs.patch
 # Fix gn
-Patch8:    buildflags.patch
-Patch9:    narrowing.patch
+Patch7:    buildflags.patch
+Patch8:    narrowing.patch
 # fixes
-Patch10:   optimize.patch
-Patch11:   gpu-timeout.patch
-Patch12:   namespace.patch
-Patch13:   ambiguous-aliases.patch
-Patch14:   mojo.patch
-Patch15:   dma.patch
-Patch16:   widevine-allow-on-linux.patch
+Patch09:   optimize.patch
+Patch10:   gpu-timeout.patch
+Patch11:   namespace.patch
+Patch12:   ambiguous-aliases.patch
+#Patch14:   mojo.patch
+Patch13:   dma.patch
+Patch14:   widevine-allow-on-linux.patch
 
 # Thanks Gentoo
-Patch17:   chromium-ffmpeg-r1.patch
-Patch18:   chromium-ffmpeg-clang.patch
-Patch19:   chromium-gn-bootstrap-r23.patch
-
+Patch15:   chromium-ffmpeg-r1.patch
+Patch16:   chromium-libwebp-shim-r0.patch
+Patch17:   chromium-cors-string-r0.patch
+Patch18:   chromium-libjpeg-r0.patch
 # Thanks Intel
 %if %{with vaapi}
-Patch20:   vaapi.patch
+Patch19:   vaapi.patch
 %endif
-
 
 ExclusiveArch: i686 x86_64 armv7l
 
@@ -326,21 +317,19 @@ popd
 rm -rf third_party/test_fonts
 mkdir -p third_party/test_fonts/test_fonts
 tar xmzvf %{S:17} -C third_party/test_fonts
+tar xmzvf %{S:19} -C third_party/test_fonts/test_fonts
 pushd third_party/test_fonts/test_fonts
 unzip %{S:15}
 tar xf %{S:16}
 mv MuktiNarrow0.94/MuktiNarrow.ttf .
 rm -rf MuktiNarrow0.94
-%if 0%{?fedora} >= 27
 cp -a /usr/share/fonts/dejavu/DejaVuSans.ttf /usr/share/fonts/dejavu/DejaVuSans-Bold.ttf .
 cp -a /usr/share/fonts/thai-scalable/Garuda.ttf .
 cp -a /usr/share/fonts/lohit-devanagari/Lohit-Devanagari.ttf /usr/share/fonts/lohit-gurmukhi/Lohit-Gurmukhi.ttf /usr/share/fonts/lohit-tamil/Lohit-Tamil.ttf .
 cp -a /usr/share/fonts/google-noto-cjk/NotoSansCJKjp-Regular.otf /usr/share/fonts/google-noto/NotoSansKhmer-Regular.ttf .
 cp -a /usr/share/fonts/google-croscore/Tinos-*.ttf .
-%endif
 cp -f %{S:18} .
-svn checkout "https://github.com/bloomberg/chromium.bb/trunk/src/third_party/gardiner_mod" . && rm -rf .svn && rm -f *.html *.txt *.pb
-svn checkout https://github.com/google/fonts/trunk/apache/arimo . && rm -rf .svn && rm -f *.html *.txt *.pb
+svn checkout https://github.com/google/fonts/trunk/apache/arimo . && rm -rf .svn
 svn checkout https://github.com/google/fonts/trunk/apache/cousine . && rm -rf .svn
 popd
 #
@@ -413,8 +402,11 @@ buildtools/third_party/libc++abi \
     courgette/third_party \
     native_client/src/third_party/dlmalloc \
     native_client/src/third_party/valgrind \
+    net/third_party/http2 \
     net/third_party/mozilla_security_manager \
     net/third_party/nss \
+    net/third_party/quic \
+    net/third_party/spdy \
     third_party/node \
     third_party/adobe \
     third_party/analytics \
@@ -432,7 +424,7 @@ buildtools/third_party/libc++abi \
     third_party/boringssl \
     third_party/boringssl/src/third_party/fiat \
     third_party/blink \
-third_party/apple_apsl \
+    third_party/apple_apsl \
     third_party/breakpad \
     third_party/breakpad/breakpad/src/third_party/curl \
     third_party/brotli \
@@ -474,11 +466,11 @@ third_party/apple_apsl \
     third_party/leveldatabase \
     third_party/libaddressinput \
     third_party/libaom \
-    third_party/libaom/source/libaom/third_party/x86inc \
     third_party/libjingle \
     third_party/libphonenumber \
     third_party/libsecret \
     third_party/libsrtp \
+    third_party/libsync \
     third_party/libudev \
     third_party/libusb \
 %if !%{with system_libvpx}
@@ -520,10 +512,13 @@ third_party/markupsafe \
     third_party/protobuf \
     third_party/protobuf/third_party/six \
     third_party/qcms \
+    third_party/pyjson5 \
+    third_party/rnnoise \
     third_party/sfntly \
     third_party/skia \
     third_party/skia/third_party/vulkan \
     third_party/skia/third_party/gif \
+    third_party/skia/third_party/skcms \
     third_party/node/node_modules/polymer-bundler/lib/third_party/UglifyJS2 \
     third_party/smhasher \
     third_party/speech-dispatcher \
@@ -538,6 +533,7 @@ third_party/markupsafe \
     third_party/webrtc \
     third_party/widevine \
     third_party/inspector_protocol \
+    v8/third_party/antlr4 \
     v8/third_party/inspector_protocol \
     third_party/woff2 \
     third_party/xdg-utils \
@@ -557,6 +553,7 @@ third_party/markupsafe \
     third_party/pdfium/third_party/libpng16 \
     third_party/pdfium/third_party/libtiff \
     third_party/pdfium/third_party/skia_shared \
+    third_party/perfetto \
     third_party/googletest \
     third_party/glslang-angle \
     third_party/unrar \
@@ -653,25 +650,24 @@ export PYTHON_DISALLOW_AMBIGUOUS_VERSION=0
 
 # some still call gcc/g++
 %if %{with clang}
+%if %{with clang_bundle}
+export CC=%{_builddir}/buclang/bin/clang
+export CXX=%{_builddir}/buclang/bin/clang++
+%else
 export CC=clang
 export CXX=clang++
 %endif
 mkdir -p "$HOME/bin/"
-ln -sfn /usr/bin/$CC $HOME/bin/gcc
-ln -sfn /usr/bin/$CXX $HOME/bin/g++
+ln -sfn $CC $HOME/bin/gcc
+ln -sfn $CXX $HOME/bin/g++
 export PATH="$HOME/bin/:$PATH"
-
-
-export AR=ar NM=nm
-
-%if %{with clang}
-export CC=clang
-export CXX=clang++
 %else
 export CC="gcc"
 export CXX="g++"
 export CXXFLAGS="$CXXFLAGS -fno-delete-null-pointer-checks"
 %endif
+
+export AR=ar NM=nm
 
 _flags+=(
     'is_debug=false'
@@ -720,7 +716,6 @@ _flags+=(
     'enable_widevine=true'
     'enable_nacl=false'
     'enable_swiftshader=true'
-    'enable_webrtc=true'
     "google_api_key=\"AIzaSyD1hTe85_a14kr1Ks8T3Ce75rvbR1_Dx7Q\""
     "google_default_client_id=\"4139804441.apps.googleusercontent.com\""
     "google_default_client_secret=\"KDTRKEZk2jwT_7CDpcmMA--P\""
@@ -769,6 +764,9 @@ install -m 644 out/Release/*.so %{buildroot}%{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Thu Jul 26 2018 - David Va <davidva AT tuta DOT io> 68.0.3440.75-7
+- Updated to 68.0.3440.75-7
 
 * Thu Jun 14 2018 - David Vasquez <davidjeremias82 AT gmail DOT com>  67.0.3396.87-3
 - Updated to 67.0.3396.87
