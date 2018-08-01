@@ -323,13 +323,14 @@ unzip %{S:15}
 tar xf %{S:16}
 mv MuktiNarrow0.94/MuktiNarrow.ttf .
 rm -rf MuktiNarrow0.94
+rm -f *.html *.txt
 cp -a /usr/share/fonts/dejavu/DejaVuSans.ttf /usr/share/fonts/dejavu/DejaVuSans-Bold.ttf .
 cp -a /usr/share/fonts/thai-scalable/Garuda.ttf .
 cp -a /usr/share/fonts/lohit-devanagari/Lohit-Devanagari.ttf /usr/share/fonts/lohit-gurmukhi/Lohit-Gurmukhi.ttf /usr/share/fonts/lohit-tamil/Lohit-Tamil.ttf .
 cp -a /usr/share/fonts/google-noto-cjk/NotoSansCJKjp-Regular.otf /usr/share/fonts/google-noto/NotoSansKhmer-Regular.ttf .
 cp -a /usr/share/fonts/google-croscore/Tinos-*.ttf .
 cp -f %{S:18} .
-svn checkout https://github.com/google/fonts/trunk/apache/arimo . && rm -rf .svn
+svn checkout https://github.com/google/fonts/trunk/apache/arimo . && rm -rf .svn && rm -f *.html *.txt
 svn checkout https://github.com/google/fonts/trunk/apache/cousine . && rm -rf .svn
 popd
 #
