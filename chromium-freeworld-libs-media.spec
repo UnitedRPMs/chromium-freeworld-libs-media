@@ -330,7 +330,8 @@ cp -a /usr/share/fonts/lohit-devanagari/Lohit-Devanagari.ttf /usr/share/fonts/lo
 cp -a /usr/share/fonts/google-noto-cjk/NotoSansCJKjp-Regular.otf /usr/share/fonts/google-noto/NotoSansKhmer-Regular.ttf .
 cp -a /usr/share/fonts/google-croscore/Tinos-*.ttf .
 cp -f %{S:18} .
-svn checkout https://github.com/google/fonts/trunk/apache/arimo . && rm -rf .svn && rm -f *.html *.txt
+svn checkout https://github.com/google/fonts/trunk/apache/arimo . && rm -rf .svn 
+rm -f *.html && rm -f *.txt
 svn checkout https://github.com/google/fonts/trunk/apache/cousine . && rm -rf .svn
 popd
 #
