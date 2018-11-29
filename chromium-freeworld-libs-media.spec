@@ -25,7 +25,11 @@
 %global debug_package %{nil}
 
 # vpx
+%if 0%{?fedora} >= 28
 %bcond_without system_libvpx
+%else
+%bcond_with system_libvpx
+%endif
 
 # clang is necessary for a fast build
 %bcond_without clang
@@ -119,7 +123,9 @@ Patch5:		chromium-pdfium-stdlib-r0.patch
 Patch6:         optimize.patch
 Patch7:		fixes_mojo.patch
 Patch8:         third-party-cookies.patch
+%if %{with system_libvpx}
 Patch9:         vpx.patch
+%endif
 # VAAPI
 # https://chromium-review.googlesource.com/c/chromium/src/+/532294
 %if %{with vaapi}
