@@ -95,7 +95,7 @@
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    70.0.3538.102
+Version:    70.0.3538.110
 Release:    7%{?dist}
 Summary:    Chromium media libraries built with all possible codecs
 
@@ -726,14 +726,16 @@ ninja-build -C out/Release media/ffmpeg -j$jobs
 
 mkdir -p %{buildroot}%{chromiumdir}
 
-install -m 644 out/Release/*.so %{buildroot}%{chromiumdir}/
+install -m 644 out/Release/libffmpeg.so* %{buildroot}%{chromiumdir}/
 
 
 %files
-%exclude %{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Tue Dec 11 2018 - David Va <davidva AT tuta DOT io> 70.0.3538.110-7
+- Updated to 70.0.3538.110
 
 * Tue Nov 27 2018 - David Va <davidva AT tuta DOT io> 70.0.3538.102-7
 - Updated to 70.0.3538.102
