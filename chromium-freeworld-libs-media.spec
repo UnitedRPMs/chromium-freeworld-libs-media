@@ -25,11 +25,7 @@
 %global debug_package %{nil}
 
 # vpx
-%if 0%{?fedora} >= 28
 %bcond_without system_libvpx
-%else
-%bcond_with system_libvpx
-%endif
 
 # clang is necessary for a fast build
 %bcond_without clang
@@ -66,13 +62,21 @@
 %bcond_with system_libxml2
 %endif
 
-# Require harfbuzz >= 1.5.0 for hb_glyph_info_t
-%if 0%{?fedora} >= 29
-%bcond_without system_harfbuzz
-%else
-%bcond_with system_harfbuzz
-%endif
+# Component build
+# Component build. Setting to true compiles targets declared as "components"
+# as shared libraries loaded dynamically. This speeds up development time.
+# When false, components will be linked statically.
+# For more information see
+# https://chromium.googlesource.com/chromium/src/+/master/docs/component_build.md
 
+%bcond_without component_build
+
+# Require harfbuzz >= 1.5.0 for hb_glyph_info_t
+%if 0%{?fedora} <= 28
+%bcond_with system_harfbuzz 
+%else
+%bcond_without system_harfbuzz 
+%endif
 
 # Allow testing whether icu can be unbundled
 %bcond_with system_libicu
@@ -86,16 +90,23 @@
 # Now is easy to use the external ffmpeg...
 %bcond_with system_ffmpeg
 
+# Jumbo / Unity builds
+# https://chromium.googlesource.com/chromium/src/+/lkcr/docs/jumbo.md
+%bcond_without jumbo_unity
+
 # Vaapi conditional
 %bcond_without vaapi
 
 # Gtk2 conditional
-%bcond_without gtk2
+%bcond_with gtk2
+
+# re2 conditional
+%bcond_with re2_external
 
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    70.0.3538.110
+Version:    71.0.3578.98
 Release:    7%{?dist}
 Summary:    Chromium media libraries built with all possible codecs
 
@@ -110,32 +121,26 @@ Source0:    https://commondatastorage.googleapis.com/chromium-browser-official/c
 Source1:    chromium-latest.py
 Source2:    BUILD.gn
 
+# Thanks Arch Linux
+Patch1:         chromium-widevine.patch
 # Thanks Gentoo
-Patch1:         chromium-widevine-r2.patch
-Patch2:         chromium-ffmpeg-ebp-r1.patch
-Patch3:         chromium-compiler-r4.patch
-%if %{with system_harfbuzz}
-Patch4:		chromium-harfbuzz-r0.patch
-%endif
+Patch2:         chromium-compiler-r7.patch
+Patch3:		chromium-71-gcc-0.patch
 # Thanks Fedora
-Patch5:		chromium-pdfium-stdlib-r0.patch
-#Thanks Debian
+%if 0%{?fedora} >= 30
+Patch4:		chromium-70.0.3538.77-harfbuzz2-fix.patch
+%endif
+# Thanks Debian
+Patch5:		vpx.patch
 Patch6:         optimize.patch
 Patch7:		fixes_mojo.patch
-Patch8:         third-party-cookies.patch
-%if %{with system_libvpx}
-Patch9:         vpx.patch
-%endif
+Patch8:		third-party-cookies.patch
+Patch9:		android.patch
+Patch10:	widevine-locations.patch
 # VAAPI
-# https://chromium-review.googlesource.com/c/chromium/src/+/532294
 %if %{with vaapi}
-Patch10:       	cfi-vaapi-fix.patch
-Patch11:	chromium-vaapi-r21.patch
+Patch11:	chromium-vaapi.patch
 %endif
-Patch12:	chromium-nacl-llvm-ar.patch
-Patch13:	chromium-70.0.3538.67-sandbox-pie.patch
-# Thanks Mageia
-Patch14:	chromium-70-gtk2.patch
 
 ExclusiveArch: x86_64 
 
@@ -154,10 +159,10 @@ BuildRequires: ninja-build, bison, gperf, hwdata
 BuildRequires: libgcc(x86-32), glibc(x86-32), libatomic
 BuildRequires: libcap-devel, cups-devel, minizip-devel, alsa-lib-devel
 BuildRequires: pkgconfig(libexif), pkgconfig(nss)
-%if %{with _gtk3}
-BuildRequires: pkgconfig(gtk+-3.0)
-%else
+%if %{with gtk2}
 BuildRequires: pkgconfig(gtk+-2.0)
+%else
+BuildRequires: pkgconfig(gtk+-3.0)
 %endif
 BuildRequires: python2-devel
 BuildRequires: pkgconfig(xtst), pkgconfig(xscrnsaver)
@@ -204,7 +209,9 @@ BuildRequires: opus-devel
 %if %{with system_libxml2}
 BuildRequires: pkgconfig(libxml-2.0)
 %endif
+%if %{with re2_external}
 BuildRequires: re2-devel
+%endif
 %if %{with system_openh264}
 BuildRequires: openh264-devel
 %endif
@@ -467,6 +474,7 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
 		third_party/skia/third_party/vulkan \
 		third_party/smhasher \
 		third_party/spirv-headers \
+		third_party/SPIRV-Tools \
 		third_party/spirv-tools-angle \
 		third_party/sqlite \
 		third_party/swiftshader \
@@ -493,6 +501,7 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
 		v8/src/third_party/valgrind \
 		v8/src/third_party/utf8-decoder \
 		v8/third_party/inspector_protocol \
+		third_party/jsoncpp \
 		v8/third_party/v8 \
                 third_party/yasm \
 		base/third_party/libevent \
@@ -501,6 +510,9 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
 		third_party/opus \
 		third_party/speech-dispatcher \
 		third_party/test_fonts \
+%if !%{with re2_external}
+		third_party/re2 \
+%endif
 %if %{with remote_desktop}
 		third_party/sinonjs \
 		third_party/blanketjs \
@@ -541,10 +553,9 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
 %if !%{with system_harfbuzz}
     		third_party/harfbuzz-ng \
 %endif
-%if !%{with system_ffmpeg}
+%if !%{with system_ffmpeg} 
 		third_party/ffmpeg 
 %endif
-
 
 python2 build/linux/unbundle/replace_gn_files.py --system-libraries \
 %if %{with system_ffmpeg}
@@ -565,8 +576,10 @@ python2 build/linux/unbundle/replace_gn_files.py --system-libraries \
 %if %{with system_openh264}
     openh264 \
 %endif
-    re2 \
     snappy \
+%if %{with re2_external}
+    re2 \
+%endif
 %if %{with system_libicu}
     icu \
 %endif
@@ -576,6 +589,7 @@ python2 build/linux/unbundle/replace_gn_files.py --system-libraries \
     libvpx \
 %endif
     zlib
+
 
 
 sed -i 's|//third_party/usb_ids|/usr/share/hwdata|g' device/usb/BUILD.gn
@@ -611,6 +625,9 @@ ln -s %{python2_sitelib}/ply third_party/ply
 %if 0%{?fedora} >= 28 || %{with clang_bundle}
 sed -i \
     -e '/"-Wno-ignored-pragma-optimize"/d' build/config/compiler/BUILD.gn
+
+sed -i \
+    -e '/"-Wno-defaulted-function-deleted"/d' build/config/compiler/BUILD.gn
 %endif
 
 # Force script incompatible with Python 3 to use /usr/bin/python2
@@ -711,7 +728,6 @@ _flags+=(
     'remove_webcore_debug_symbols=true'
 )
 
-# NOTE "is_component_build=false", enables headless. Change to "is_component_ffmpeg=false" ever.
 
 # Build files for Ninja #
 %{_bindir}/gn gen --script-executable=/usr/bin/python2 --args="${_flags[*]}" out/Release 
@@ -733,6 +749,9 @@ install -m 644 out/Release/libffmpeg.so* %{buildroot}%{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Sat Dec 22 2018 - David Va <davidva AT tuta DOT io> 71.0.3578.98-7
+- Updated to 71.0.3578.98
 
 * Tue Dec 11 2018 - David Va <davidva AT tuta DOT io> 70.0.3538.110-7
 - Updated to 70.0.3538.110
