@@ -2,10 +2,9 @@ version: 2
 jobs:
   build:
     docker: 
-      - image: davidva/unibuild-31
+      - image: davidva/unibuild-31	
     working_directory: ~/enjoy
-    no_output_timeout: 40m
-    parallelism: 4
+    parallelism: 1
     steps:
       - checkout
       - run: " cd / && rm -f /urpms && /usr/bin/wget -c https://raw.githubusercontent.com/kuboosoft/united-build/master/urpms && chmod a+x $PWD/urpms && ./urpms -g UnitedRPMs/chromium-freeworld-libs-media -s chromium-freeworld-libs-media.spec -r true -d 'dist .fc31' -u true" 
