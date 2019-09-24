@@ -100,8 +100,8 @@
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    75.0.3770.142
-Release:    29.1
+Version:    77.0.3865.90
+Release:    30
 Summary:    Chromium media libraries built with all possible codecs
 
 Group:      Applications/Internet
@@ -120,23 +120,18 @@ Source22:   https://github.com/pallets/markupsafe/archive/1.1.1.tar.gz
 #----------------------------------------------------------------------------------------------------------------------------
 # Patches 
 Patch1: chromium-widevine.patch
-Patch2: chromium-angle-gcc9.patch
-Patch3: chromium-gcc9-r654570.patch
-Patch4: chromium-gcc9-r666279.patch
-Patch5: chromium-gcc9-r666714.patch
+Patch2: chromium-77-fix-gn-gen.patch
+Patch3: chromium-unbundle-zlib.patch
+Patch4: chromium-77-gcc-include.patch
 Patch6: chromium-nacl-llvm-ar.patch
 Patch7: chromium-python2.patch
 Patch8: chromium-webrtc-cstring.patch
 Patch9: widevine-locations.patch
-Patch10: chromium-75-fix-gn-gen.patch
 Patch11: chromium-gl_defines_fix.patch
 Patch12: chromium-75.0.3770.80-SIOCGSTAMP.patch
-Patch13: chromium-remove-const.patch
-
 Patch22: gtk2.patch
 # VAAPI
-Patch23: vaapi.patch
-Patch24: vaapi-fix.patch
+Patch24: enable_vaapi_on_linux_2.diff
 
 ExclusiveArch: x86_64 
 
@@ -189,8 +184,8 @@ BuildRequires: pkgconfig(libudev)
 BuildRequires: pkgconfig(libffi)
 # remove_bundled_libraries.py --do-remove
 BuildRequires: python2-rpm-macros
-BuildRequires: python2-beautifulsoup4
-BuildRequires: python-html5lib
+#BuildRequires: python2-beautifulsoup4
+#BuildRequires: python-html5lib
 %if %{with system_jinja2}
 %if 0%{?fedora} >= 24
 BuildRequires: python2-jinja2
@@ -375,20 +370,16 @@ sed -r -i 's/xlocale.h/locale.h/' buildtools/third_party/libc++/trunk/include/__
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
-%patch5 -p1
 %patch6 -p1
 %patch7 -p1
 %patch8 -p1
 %patch9 -p1
-%patch10 -p1
 %patch11 -p1
 %patch12 -p1
-%patch13 -p1
 %if %{with gtk2}
 %patch22 -p1
 %endif
 %if %{with vaapi}
-%patch23 -p1
 %patch24 -p1
 %endif
 
@@ -403,6 +394,7 @@ ln -sfn /usr/bin/python2.7 $HOME/bin/python
 export PATH="$HOME/bin/:$PATH"
 
 python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
+    base/third_party/cityhash \
     base/third_party/dmg_fp \
     base/third_party/dynamic_annotations \
     base/third_party/icu\
@@ -440,6 +432,8 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/blink \
     third_party/boringssl \
     third_party/boringssl/src/third_party/fiat \
+    third_party/boringssl/src/third_party/sike \
+    third_party/boringssl/linux-x86_64/crypto/third_party/sike \
     third_party/breakpad \
     third_party/breakpad/breakpad/src/third_party/curl \
     third_party/brotli \
@@ -480,7 +474,6 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/icu \
     third_party/inspector_protocol \
     third_party/jsoncpp \
-    third_party/jsoncpp/overrides \
     third_party/jstemplate \
     third_party/khronos \
     third_party/leveldatabase \
@@ -505,7 +498,7 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/nasm \
     third_party/node \
     third_party/node/node_modules/polymer-bundler/lib/third_party/UglifyJS2 \
-    third_party/openmax_dl \
+    third_party/one_euro_filter \
     third_party/ots \
     third_party/perfetto \
     third_party/pdfium \
@@ -521,13 +514,13 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/pffft \
     third_party/polymer \
     third_party/protobuf \
-    third_party/protobuf/third_party/six \
     third_party/pyjson5/src/json5 \
     third_party/qcms \
     third_party/rnnoise \
     third_party/s2cellid \
     third_party/sfntly \
     third_party/skia \
+    third_party/skia/include/third_party/skcms \
     third_party/skia/include/third_party/vulkan/vulkan \
     third_party/skia/third_party/gif \
     third_party/skia/third_party/skcms \
@@ -537,8 +530,10 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/SPIRV-Tools \
     third_party/sqlite \
     third_party/swiftshader \
+    third_party/swiftshader/third_party/llvm-7.0 \
     third_party/swiftshader/third_party/llvm-subzero \
     third_party/swiftshader/third_party/subzero \
+    third_party/swiftshader/third_party/SPIRV-Headers/include/spirv/unified1 \
     third_party/tcmalloc \
     third_party/unrar \
     third_party/usrsctp \
@@ -567,8 +562,14 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/usb_ids \
     third_party/adobe \
     third_party/speech-dispatcher \
-   third_party/libvpx \
+    third_party/libvpx \
     third_party/libvpx/source/libvpx/third_party/x86inc \
+    third_party/openscreen \
+    third_party/openscreen/src/third_party/tinycbor/src/src \
+    third_party/catapult/third_party/six \
+    third_party/protobuf/third_party/six \
+    third_party/catapult/third_party/beautifulsoup4 \
+    third_party/catapult/third_party/html5lib-python \
 %if !%{with re2_external}
 		third_party/re2 \
 %endif
@@ -796,6 +797,9 @@ install -m 644 out/Release/libffmpeg.so* %{buildroot}%{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Thu Sep 19 2019 - David Va <davidva AT tuta DOT io> 77.0.3865.90
+- Updated to 77.0.3865.90
 
 * Fri Aug 09 2019 - David Va <davidva AT tuta DOT io> 75.0.3770.142
 - Updated to 75.0.3770.142
