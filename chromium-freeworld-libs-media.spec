@@ -101,7 +101,7 @@
 
 Name:       chromium-freeworld-libs-media
 Version:    77.0.3865.90
-Release:    30
+Release:    62.1
 Summary:    Chromium media libraries built with all possible codecs
 
 Group:      Applications/Internet
