@@ -25,7 +25,7 @@
 #
 # Get the version number of latest stable version
 # $ curl -s 'https://omahaproxy.appspot.com/all?os=linux&channel=stable' | sed 1d | cut -d , -f 3
-%bcond_without normalsource
+%bcond_with normalsource
 
 %global debug_package %{nil}
 
@@ -97,8 +97,8 @@
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    78.0.3904.97
-Release:    98.1
+Version:    78.0.3904.108
+Release:    64.3
 Summary:    Chromium media libraries built with all possible codecs
 
 Group:      Applications/Internet
@@ -814,6 +814,9 @@ install -m 644 out/Release/libffmpeg.so* %{buildroot}%{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Thu Nov 28 2019 - David Va <davidva AT tuta DOT io> 78.0.3904.108
+- Updated to 78.0.3904.108
 
 * Thu Nov 07 2019 - David Va <davidva AT tuta DOT io> 78.0.3904.97
 - Updated to 78.0.3904.97
