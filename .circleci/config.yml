@@ -4,7 +4,7 @@ jobs:
     docker: 
       - image: davidva/unibuild-29	
     working_directory: ~/enjoy
-    parallelism: 1
+    parallelism: 3
     steps:
       - checkout
       - run: " cd / && rm -f /urpms && /usr/bin/wget -c https://raw.githubusercontent.com/kuboosoft/united-build/master/urpms && chmod a+x $PWD/urpms && ./urpms -g UnitedRPMs/chromium-freeworld-libs-media -s chromium-freeworld-libs-media.spec -r true -d 'dist .fc29' -u true" 
