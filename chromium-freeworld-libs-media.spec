@@ -675,6 +675,9 @@ sed -i \
     -e '/"-Wno-defaulted-function-deleted"/d' build/config/compiler/BUILD.gn
 
 sed -i \
+    -e '/"-Wextra-semi-stmt"/d' build/config/compiler/BUILD.gn
+
+sed -i \
     -e '/"-Qunused-arguments"/d' \
     build/config/compiler/BUILD.gn
 
