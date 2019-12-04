@@ -98,7 +98,7 @@
 
 Name:       chromium-freeworld-libs-media
 Version:    78.0.3904.108
-Release:    64.3
+Release:    65.1
 Summary:    Chromium media libraries built with all possible codecs
 
 Group:      Applications/Internet
@@ -157,10 +157,10 @@ BuildRequires: java-openjdk-headless
 BuildRequires: javapackages-tools
 %endif
 BuildRequires: xz
-#BuildRequires: glibc32
+BuildRequires: glibc32
 #BuildRequires: /lib/libc.so.6 /usr/lib/libc.so
-BuildRequires: libgcc(x86-32) 
-BuildRequires: glibc(x86-32) 
+#BuildRequires: libgcc(x86-32) 
+#BuildRequires: glibc(x86-32) 
 BuildRequires: redhat-rpm-config
 BuildRequires: libatomic
 BuildRequires: libcap-devel 
