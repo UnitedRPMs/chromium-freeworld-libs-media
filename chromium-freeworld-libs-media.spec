@@ -1,3 +1,20 @@
+#
+# spec file for package chromium-freeworld
+#
+# Copyright (c) 2020 UnitedRPMs.
+#
+# All modifications and additions to the file contributed by third parties
+# remain the property of their copyright owners, unless otherwise agreed
+# upon. The license for this file, and modifications and additions to the
+# file, is the same license as for the pristine package itself (unless the
+# license for the pristine package is not an Open Source License, in which
+# case the license is the MIT License). An "Open Source License" is a
+# license that conforms to the Open Source Definition (Version 1.9)
+# published by the Open Source Initiative.
+
+# Please submit bugfixes or comments via https://goo.gl/zqFJft
+#
+
 # These spec file includes some tips and patches thanks to:
 #  [1] https://www.archlinux.org/packages/extra/x86_64/chromium/
 #  [2] https://packages.gentoo.org/packages/www-client/chromium
@@ -25,7 +42,7 @@
 #
 # Get the version number of latest stable version
 # $ curl -s 'https://omahaproxy.appspot.com/all?os=linux&channel=stable' | sed 1d | cut -d , -f 3
-%bcond_with normalsource
+%bcond_without normalsource
 
 %global debug_package %{nil}
 
@@ -78,9 +95,9 @@
 # Now is easy to use the external ffmpeg...
 %bcond_with system_ffmpeg
 
-# Jumbo / Unity builds
+# Jumbo / Unity builds (deprecated)
 # https://chromium.googlesource.com/chromium/src/+/lkcr/docs/jumbo.md
-%bcond_without jumbo_unity
+%bcond_with jumbo_unity
 
 # Vaapi conditional
 %bcond_without vaapi
@@ -94,11 +111,14 @@
 # swiftshader conditional
 %bcond_with swiftshader
 
+# 
+%define _legacy_common_support 1
+
 # Generally the .spec file is the same of our chromium-freeworld, building only ffmpeg; then we will obtain all possible codecs.
 
 Name:       chromium-freeworld-libs-media
-Version:    78.0.3904.108
-Release:    65.1
+Version:    80.0.3987.87
+Release:    143.1
 Summary:    Chromium media libraries built with all possible codecs
 
 Group:      Applications/Internet
@@ -113,29 +133,30 @@ Source1:    chromium-latest.py
 Source2:    BUILD.gn
 # markupsafe
 Source22:   https://github.com/pallets/markupsafe/archive/1.1.1.tar.gz
+# Clang bundle
+%if %{with clang_bundle}
+Source23:  https://releases.llvm.org/8.0.0/clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz 
+%endif
 
 #----------------------------------------------------------------------------------------------------------------------------
 # Patches 
-Patch1: chromium-widevine.patch
-Patch2: chromium-unbundle-zlib.patch
-Patch3: chromium-78-include.patch
-Patch4: chromium-nacl-llvm-ar.patch
-Patch5: chromium-python2.patch
-Patch6: widevine-locations.patch
+Patch1: widevine-other-locations.patch
+Patch2: widevine-allow-on-linux.patch
+Patch3: chromium-unbundle-zlib.patch
+Patch4: 0001-cros-search-service-Include-cmath-for-std-pow.patch
+Patch5: chromium-nacl-llvm-ar.patch
+Patch6: chromium-python2.patch
 Patch7: chromium-gl_defines_fix.patch
-Patch8: chromium-dns-util-libstdc++-fix.patch
-Patch9: chromium-freeworld/chromium-remove-no-canonical-prefixes.patch
-Patch10: chromium-swiftshader-default-visibility.patch
-Patch11: fix-shutdown-crash-in-ProfileManager.patch
-Patch12: fix-spammy-unique-font-matching-log.patch
-Patch13: chromium-78-gcc-enum-range.patch
-Patch14: chromium-78-gcc-noexcept.patch
-Patch15: chromium-78-icon.patch
-Patch16: chromium-78-protobuf-export.patch
-Patch17: chromium-77-clang.patch
-Patch18: suppress-newer-clang-warning-flags.patch
+Patch8: chromium-remove-no-canonical-prefixes.patch
+Patch9: chromium-swiftshader-default-visibility.patch
+Patch10: 0001-BookmarkModelMerger-Move-RemoteTreeNode-declaration.patch
+Patch11: chromium-77-clang.patch
+Patch12: notifications-nicer.patch
+Patch13: sync-enable-USSPasswords-by-default.patch
+Patch14: chromium-80-unbundle-libxml.patch
 
 Patch22: gtk2.patch
+
 # VAAPI
 Patch24: enable_vaapi_on_linux_2.diff
 
@@ -288,6 +309,7 @@ BuildRequires:	subversion
 BuildRequires:	at-spi2-core-devel
 %if %{with clang_bundle}
 BuildRequires:	ncurses-compat-libs
+BuildRequires:  z3-libs
 %endif
 BuildRequires:	libevent-devel
 BuildRequires:	pipewire-devel >= 0.2
@@ -316,7 +338,10 @@ tar xJf %{_builddir}/chromium-%{version}.tar.xz -C %{_builddir}
 tar xJf %{S:23} -C %{_builddir}
 pushd %{_builddir}
 mv -f clang+llvm-8.0.0-x86_64-linux-gnu-ubuntu-18.04 buclang 
+pushd buclang/lib/
+ln -sf /usr/lib64/libz3.so.0.0.0 libz3.so.4.8
 popd
+ popd
 %endif
 
 
@@ -382,10 +407,7 @@ sed -r -i 's/xlocale.h/locale.h/' buildtools/third_party/libc++/trunk/include/__
 %patch12 -p1
 %patch13 -p1
 %patch14 -p1
-%patch15 -p1
-%patch16 -p1
-%patch17 -p1
-%patch18 -p1
+
 %if %{with gtk2}
 %patch22 -p1
 %endif
@@ -401,7 +423,7 @@ find -depth -type f -writable -name "*.py" -exec sed -iE '1s=^#! */usr/bin/\(pyt
 
 # python2 fix
 mkdir -p "$HOME/bin/"
-ln -sfn /usr/bin/python2.7 $HOME/bin/python
+ln -sfn %{__python2} $HOME/bin/python
 export PATH="$HOME/bin/:$PATH"
 
 python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
@@ -443,8 +465,6 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/blink \
     third_party/boringssl \
     third_party/boringssl/src/third_party/fiat \
-    third_party/boringssl/src/third_party/sike \
-    third_party/boringssl/linux-x86_64/crypto/third_party/sike \
     third_party/breakpad \
     third_party/breakpad/breakpad/src/third_party/curl \
     third_party/brotli \
@@ -472,11 +492,13 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/dawn \
     third_party/depot_tools \
     third_party/devscripts \
+    third_party/devtools-frontend \
+    third_party/devtools-frontend/src/third_party \
     third_party/dom_distiller_js \
     third_party/emoji-segmenter \
     third_party/flatbuffers \
-    third_party/flot \
     third_party/freetype \
+    third_party/libgifcodec \
     third_party/google_input_tools \
     third_party/google_input_tools/third_party/closure_library \
     third_party/google_input_tools/third_party/closure_library/third_party/closure \
@@ -539,7 +561,6 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/skia \
     third_party/skia/include/third_party/skcms \
     third_party/skia/include/third_party/vulkan/vulkan \
-    third_party/skia/third_party/gif \
     third_party/skia/third_party/skcms \
     third_party/skia/third_party/vulkanmemoryallocator \
     third_party/smhasher \
@@ -549,6 +570,7 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/swiftshader \
     third_party/swiftshader/third_party/llvm-7.0 \
     third_party/swiftshader/third_party/llvm-subzero \
+    third_party/swiftshader/third_party/marl \
     third_party/swiftshader/third_party/SPIRV-Headers \
     third_party/swiftshader/third_party/subzero \
     third_party/tcmalloc \
@@ -567,6 +589,7 @@ python2 build/linux/unbundle/remove_bundled_libraries.py --do-remove \
     third_party/webrtc/rtc_base/third_party/sigslot \
     third_party/widevine \
     third_party/woff2 \
+    third_party/wuffs \
     third_party/zlib/google \
     url/third_party/mozilla \
     v8/src/third_party/siphash \
@@ -678,6 +701,27 @@ sed -i \
     -e '/"-Wextra-semi-stmt"/d' build/config/compiler/BUILD.gn
 
 sed -i \
+    -e '/"-Wno-implicit-int-float-conversion"/d' build/config/compiler/BUILD.gn
+
+sed -i \
+    -e '/"-Wno-c99-designator"/d' build/config/compiler/BUILD.gn
+
+sed -i \
+    -e '/"-Wno-final-dtor-non-final-class"/d' build/config/compiler/BUILD.gn
+
+sed -i \
+    -e '/"-Wno-sizeof-array-div"/d' build/config/compiler/BUILD.gn
+    
+sed -i \
+    -e '/"-Wno-bitwise-conditional-parentheses"/d' build/config/compiler/BUILD.gn 
+    
+sed -i \
+    -e '/"-Wno-builtin-assume-aligned-alignment"/d' build/config/compiler/BUILD.gn 
+    
+    sed -i \
+    -e '/"-Wno-deprecated-copy"/d' build/config/compiler/BUILD.gn
+
+sed -i \
     -e '/"-Qunused-arguments"/d' \
     build/config/compiler/BUILD.gn
 
@@ -689,7 +733,7 @@ sed -i \
 %build
 
 # python2 fix
-export PATH="$HOME/bin/:$PATH"
+ export PATH="$HOME/bin/:$PATH"
 
 # some still call gcc/g++
 %if %{with clang}
@@ -697,9 +741,13 @@ export PATH="$HOME/bin/:$PATH"
 export CC=%{_builddir}/buclang/bin/clang
 export CXX=%{_builddir}/buclang/bin/clang++
 export LD_LIBRARY_PATH=%{_builddir}/buclang/lib:%{_libdir}:$LD_LIBRARY_PATH
-export CFLAGS="-O4 -I%{_builddir}/buclang/include -fPIC"
-export CXXFLAGS="-O4 -I%{_builddir}/buclang/include -fPIC"
+export CFLAGS="-O4 -I%{_builddir}/buclang/include -fPIC -Wno-builtin-macro-redefined"
+export CXXFLAGS="-O4 -I%{_builddir}/buclang/include -fPIC -Wno-builtin-macro-redefined"
 export LDFLAGS="-O4 -L%{_builddir}/buclang/lib"
+
+  # Do not warn about unknown warning options
+  CFLAGS+='   -Wno-unknown-warning-option'
+  CXXFLAGS+=' -Wno-unknown-warning-option'
 %else
 export CC=clang
 export CXX=clang++
@@ -775,6 +823,7 @@ _flags+=(
 %if !%{with system_ffmpeg}
     'is_component_ffmpeg=true' 
 %endif
+    'blink_symbol_level=0'
 %if %{with system_harfbuzz}
     'use_system_harfbuzz=true'
 %else
@@ -797,6 +846,7 @@ _flags+=(
 )
 
 
+
 # Build files for Ninja #
 %{_bindir}/gn gen --script-executable=/usr/bin/python2 --args="${_flags[*]}" out/Release 
 
@@ -804,7 +854,7 @@ _flags+=(
 jobs=$(grep processor /proc/cpuinfo | tail -1 | grep -o '[0-9]*')
 
 
-ninja-build -C out/Release media/ffmpeg -j$jobs
+%ninja_build -C out/Release media/ffmpeg -j$jobs
 
 %install
 
@@ -817,6 +867,9 @@ install -m 644 out/Release/libffmpeg.so* %{buildroot}%{chromiumdir}/
 %{chromiumdir}/libffmpeg.so*
 
 %changelog
+
+* Wed Jan 29 2020 - David Va <davidva AT tuta DOT io> 80.0.3987.87
+- Updated to 80.0.3987.87
 
 * Thu Nov 28 2019 - David Va <davidva AT tuta DOT io> 78.0.3904.108
 - Updated to 78.0.3904.108
